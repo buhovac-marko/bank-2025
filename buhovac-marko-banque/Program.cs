@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
+Console.WriteLine("--- DÉMARRAGE DE LA SIMULATION BANCAIRE ---");
+
 // 1. Création des Personnes
 Person client1 = new Person("Marko", "Buhovac", new DateTime(1867, 11, 7));
 Person client2 = new Person("Max", "Verstappen", new DateTime(1879, 3, 14));
@@ -10,45 +12,57 @@ Person client3 = new Person("Nikola", "Tesla", new DateTime(1856, 7, 10));
 
 Console.WriteLine($"\nCréation du client 1: {client1.FirstName} {client1.LastName}");
 Console.WriteLine($"Création du client 2: {client2.FirstName} {client2.LastName}");
-Console.WriteLine($"Création du client 3: {client3.FirstName} {client3.LastName}");
 
-// 2. Création des Comptes Courants
+// 2. Création des Comptes
 CurrentAccount account1 = new CurrentAccount("FR12345", 500.00, 1000.00, client1);
 CurrentAccount account2 = new CurrentAccount("FR67890", 2500.50, 500.00, client1);
-CurrentAccount account3 = new CurrentAccount("US98765", 10.00, 5000.00, client2);
+
+SavingsAccount savings1 = new SavingsAccount("EP00123", 15000.00, client1);
+SavingsAccount savings2 = new SavingsAccount("EP00456", 50.00, client2);
+
 
 // 3. Création de la Banque et ajout des comptes
 Bank bnp = new Bank("BNP Paribas");
 bnp.AddAccount(account1);
 bnp.AddAccount(account2);
-bnp.AddAccount(account3);
+bnp.AddAccount(savings1);
+bnp.AddAccount(savings2);
 
-Console.WriteLine($"\nLa banque '{bnp.Name}' a été créée et gère {bnp.Accounts.Count} comptes.");
+Console.WriteLine($"\nLa banque '{bnp.Name}' gère un total de {bnp.Accounts.Count} comptes.");
 
 // 4. Test des opérations sur les comptes
 Console.WriteLine("\n--- OPÉRATIONS BANCAIRES ---");
 
-Console.WriteLine($"Solde initial de {client1.FirstName} (Compte {account1.Number}): {account1.GetBalance():C2}");
-account1.Deposit(100.00);
-account1.Withdraw(300.00);
-account1.Withdraw(1500.00);
+// Test Compte Courant
+Console.WriteLine($"Solde initial Compte Courant {account1.Number}: {account1.GetBalance():C2}");
+account1.Deposit(100.00); 
+account1.Withdraw(300.00); 
 
-Console.WriteLine($"\nSolde de {client2.FirstName} (Compte {account3.Number}): {account3.GetBalance():C2}");
-account3.Withdraw(5005.00);
+// Test Compte Épargne
+Console.WriteLine($"\nSolde initial Compte Épargne {savings1.Number}: {savings1.Balance:C2}");
+savings1.Deposit(500.00);
+savings1.Withdraw(20000.00);
+savings1.Withdraw(500.00); 
+Console.WriteLine($"Date du dernier retrait (Épargne): {savings1.DateLastWithdraw:yyyy-MM-dd HH:mm}");
 
-// 5. Test de la méthode de rapport global (Somme des comptes d'une personne)
+
+// 5. Test de la méthode de rapport global
 Console.WriteLine("\n--- RAPPORT GLOBAL DE LA BANQUE ---");
 
+// Somme des comptes
 double totalMarko = bnp.GetTotalBalanceForPerson(client1);
 Console.WriteLine($"Solde total pour {client1.FirstName} {client1.LastName}: {totalMarko:C2}");
 
+// Somme des comptes
 double totalMax = bnp.GetTotalBalanceForPerson(client2);
 Console.WriteLine($"Solde total pour {client2.FirstName} {client2.LastName}: {totalMax:C2}");
 
+
 // Test de suppression de compte
 Console.WriteLine("\n--- GESTION DES COMPTES ---");
-bnp.DeleteAccount(account3.Number);
-Console.WriteLine($"Le compte {account3.Number} a été supprimé.");
+bnp.DeleteAccount(account2.Number);
+bnp.DeleteAccount(savings2.Number);
+bnp.DeleteAccount("NonExistant");
 Console.WriteLine($"La banque gère maintenant {bnp.Accounts.Count} comptes.");
 
 public class Person
@@ -64,26 +78,21 @@ public class Person
         BirthDate = birthDate;
     }
 }
-
-public class CurrentAccount
+public class BankAccount
 {
     public string Number { get; private set; }
-
-    public double Balance { get; private set; }
-
-    public double CreditLine { get; set; }
+    public double Balance { get; protected set; } 
     public Person Owner { get; private set; }
 
-    public CurrentAccount(string number, double initialBalance, double creditLine, Person owner)
+    public BankAccount(string number, double initialBalance, Person owner)
     {
         Number = number;
         Balance = initialBalance;
-        CreditLine = creditLine;
         Owner = owner;
     }
 
-    // Méthode publique pour le dépôt
-    public void Deposit(double amount)
+    // Méthode de dépôt commune à tous les comptes
+    public virtual void Deposit(double amount)
     {
         if (amount > 0)
         {
@@ -95,8 +104,30 @@ public class CurrentAccount
             Console.WriteLine($"Compte {Number}: Erreur de dépôt. Le montant doit être positif.");
         }
     }
-    // Méthode publique pour le retrait
-    public void Withdraw(double amount)
+
+    public void Withdraw(double amount) 
+    {
+        Console.WriteLine($"Erreur: La méthode Withdraw doit être appelée sur un type de compte spécifique (Courant ou Épargne).");
+    }
+    
+    // Méthode pour obtenir le solde
+    public double GetBalance()
+    {
+        return Balance;
+    }
+}
+public class CurrentAccount : BankAccount
+{
+    public double CreditLine { get; set; }
+
+    public CurrentAccount(string number, double initialBalance, double creditLine, Person owner)
+        : base(number, initialBalance, owner)
+    {
+        CreditLine = creditLine;
+    }
+
+    // Retrait spécifique (avec ligne de crédit)
+    public new void Withdraw(double amount)
     {
         if (amount <= 0)
         {
@@ -104,59 +135,80 @@ public class CurrentAccount
             return;
         }
 
-        double allowedThreshold = -CreditLine;
-
+        double allowedThreshold = -CreditLine; 
+        
         if (Balance - amount >= allowedThreshold)
         {
-            Balance -= amount;
-            Console.WriteLine($"Compte {Number}: - {amount:C2} (Retrait). Nouveau solde: {Balance:C2}");
+            Balance -= amount; 
+            Console.WriteLine($"Compte {Number}: - {amount:C2} (Retrait Courant). Nouveau solde: {Balance:C2}");
         }
         else
         {
             Console.WriteLine($"Compte {Number}: Retrait de {amount:C2} refusé. Le solde disponible ({Balance + CreditLine:C2}) est insuffisant.");
         }
     }
-    // Méthode publique pour le retrait
-    public double GetBalance()
+}
+public class SavingsAccount : BankAccount
+{
+    public DateTime DateLastWithdraw { get; private set; }
+
+    public SavingsAccount(string number, double initialBalance, Person owner)
+        : base(number, initialBalance, owner)
     {
-        return Balance;
+        DateLastWithdraw = DateTime.MinValue; 
     }
 
-}
+    // Retrait spécifique
+    public new void Withdraw(double amount)
+    {
+        if (amount <= 0)
+        {
+            Console.WriteLine($"Compte Épargne {Number}: Erreur de retrait. Le montant doit être positif.");
+            return;
+        }
 
+        if (Balance >= amount)
+        {
+            Balance -= amount;
+            DateLastWithdraw = DateTime.Now; 
+            Console.WriteLine($"Compte Épargne {Number}: - {amount:C2} (Retrait Épargne). Nouveau solde: {Balance:C2}");
+        }
+        else
+        {
+            Console.WriteLine($"Compte Épargne {Number}: Retrait de {amount:C2} refusé. Solde insuffisant.");
+        }
+    }
+}
 public class Bank
 {
-    public List<CurrentAccount> Accounts { get; } 
+    public Dictionary<string, BankAccount> Accounts { get; } 
     public string Name { get; set; }
 
     public Bank(string name)
     {
         Name = name;
-        Accounts = new List<CurrentAccount>();
+        Accounts = new Dictionary<string, BankAccount>();
     }
 
-    // Méthode publique pour ajouter un compte
-    public void AddAccount(CurrentAccount account)
+    public void AddAccount(BankAccount account)
     {
-        if (Accounts.Any(a => a.Number == account.Number))
+        if (Accounts.ContainsKey(account.Number))
         {
             Console.WriteLine($"Erreur: Le compte {account.Number} existe déjà dans la banque.");
         }
         else
         {
-            Accounts.Add(account);
-            Console.WriteLine($"Compte {account.Number} ajouté à la banque {Name}.");
+            Accounts.Add(account.Number, account);
+            Console.WriteLine($"Compte {account.Number} ajouté à la banque {Name} (Type: {account.GetType().Name}).");
         }
     }
 
-    // Méthode publique pour supprimer un compte
     public void DeleteAccount(string number)
     {
-        CurrentAccount accountToRemove = Accounts.FirstOrDefault(a => a.Number == number);
 
-        if (accountToRemove != null)
+        if (Accounts.Remove(number))
         {
-            Accounts.Remove(accountToRemove);
+            Console.WriteLine($"Compte {number} a été supprimé.");
         }
         else
         {
@@ -164,17 +216,13 @@ public class Bank
         }
     }
 
-    // 5. Méthode pour donner la somme de tous les comptes d'une personne
+    // 5. Méthode pour donner la somme de tous les comptes d'une personne (tous les types)
     public double GetTotalBalanceForPerson(Person owner)
     {
-        double total = Accounts
+        double total = Accounts.Values 
             .Where(account => account.Owner == owner) 
             .Sum(account => account.Balance);
             
         return total;
     }
 }
-
-
-
-
