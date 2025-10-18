@@ -34,9 +34,9 @@ public class Person
 public class CurrentAccount
 {
     public string Number { get; private set; }
-    
-    public double Balance { get; private set; } 
-    
+
+    public double Balance { get; private set; }
+
     public double CreditLine { get; set; }
     public Person Owner { get; private set; }
 
@@ -88,6 +88,57 @@ public class CurrentAccount
         return Balance;
     }
 
+}
+
+public class Bank
+{
+    public List<CurrentAccount> Accounts { get; } 
+    public string Name { get; set; }
+
+    public Bank(string name)
+    {
+        Name = name;
+        Accounts = new List<CurrentAccount>();
+    }
+
+    // Méthode publique pour ajouter un compte
+    public void AddAccount(CurrentAccount account)
+    {
+        if (Accounts.Any(a => a.Number == account.Number))
+        {
+            Console.WriteLine($"Erreur: Le compte {account.Number} existe déjà dans la banque.");
+        }
+        else
+        {
+            Accounts.Add(account);
+            Console.WriteLine($"Compte {account.Number} ajouté à la banque {Name}.");
+        }
+    }
+
+    // Méthode publique pour supprimer un compte
+    public void DeleteAccount(string number)
+    {
+        CurrentAccount accountToRemove = Accounts.FirstOrDefault(a => a.Number == number);
+
+        if (accountToRemove != null)
+        {
+            Accounts.Remove(accountToRemove);
+        }
+        else
+        {
+            Console.WriteLine($"Erreur: Le compte {number} n'existe pas dans la banque.");
+        }
+    }
+
+    // 5. Méthode pour donner la somme de tous les comptes d'une personne
+    public double GetTotalBalanceForPerson(Person owner)
+    {
+        double total = Accounts
+            .Where(account => account.Owner == owner) 
+            .Sum(account => account.Balance);
+            
+        return total;
+    }
 }
 
 
