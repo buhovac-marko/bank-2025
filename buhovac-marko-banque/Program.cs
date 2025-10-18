@@ -12,6 +12,11 @@ Console.WriteLine($"\nCréation du client 1: {client1.FirstName} {client1.LastNa
 Console.WriteLine($"Création du client 2: {client2.FirstName} {client2.LastName}");
 Console.WriteLine($"Création du client 3: {client3.FirstName} {client3.LastName}");
 
+// 2. Création des Comptes Courants
+CurrentAccount account1 = new CurrentAccount("FR12345", 500.00, 1000.00, client1);
+CurrentAccount account2 = new CurrentAccount("FR67890", 2500.50, 500.00, client1);
+CurrentAccount account3 = new CurrentAccount("US98765", 10.00, 5000.00, client2);
+
 public class Person
 {
     public string FirstName { get; set; }
