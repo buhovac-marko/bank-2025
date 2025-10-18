@@ -45,8 +45,8 @@ f. Creer une classe << SavingsAccount >> pour la gestion d'un carnet d'epargne i
     - Une méthode publique:
         - void Withdraw(double amount)
         - void Deposit (double amount)
-        
-7- Définir la classe <Account> reprenant les parties commune aux classes <CurrentAccount>
+
+g. Définir la classe <Account> reprenant les parties commune aux classes <CurrentAccount>
  et <SavingsAccount> en utilisant les concepts d'héritage, de redéfinition de méthodes et si besoin, de surcharcge
  de méthodes et d'encapsulation.
  Attention le niveau d'accessibilité du mutateur de la propriété Balance doit rester <private>
