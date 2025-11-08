@@ -64,3 +64,11 @@ sera de 3% sinon de 9.75%.
 
 l. Ajouter une méthode « public » à la classe « Account » appelée « ApplyInterest » qui
 additionnera le solde avec le retour de la méthode « CalculInterest ».
+
+12. Définir l’interface « IAccount », afin de limiter l’accès à consulter la propriété «
+Balance » et d’utiliser les méthodes « Depotsit » et « Withdraw ».
+
+13. Définir l’interface « IBankAccount » ayant les mêmes fonctionnalités que
+« IAccount ».
+Elle lui permettra, en plus, d’invoquer la méthode du « ApplyInteret » et offrira
+un accès en lecture au « Owner » et au « Number ».

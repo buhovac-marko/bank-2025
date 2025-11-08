@@ -249,3 +249,18 @@ abstract class Account
         Console.WriteLine($"Compte {Number}: + {interest:C2} (Intérêts appliqués). Nouveau solde: {Balance:C2}");
     }
 }
+
+public interface IAccount
+{
+    void Deposit(double amount);
+    void Withdraw(double amount);
+    double GetBalance();
+}
+
+public interface IBankAccount : IAccount
+{
+    void ApplyInterest();
+    Person Owner { get; }
+    string Number { get; }
+}   
+
