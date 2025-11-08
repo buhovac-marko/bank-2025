@@ -10,7 +10,17 @@ Person client1 = new Person("Marko", "Buhovac", new DateTime(1867, 11, 7));
 Person client2 = new Person("Max", "Verstappen", new DateTime(1879, 3, 14));
 
 // Création des Comptes
-CurrentAccount account1 = new CurrentAccount("FR12345", 500.00, 1000.00, client1);
+CurrentAccount account1;
+try 
+{
+    account1 = new CurrentAccount("FR12345", 500.00, -100.00, client1); 
+}
+catch (ArgumentOutOfRangeException ex)
+{
+    Console.WriteLine($"\n[Erreur de Création]: {ex.Message}");
+    account1 = new CurrentAccount("FR12345", 500.00, 1000.00, client1); 
+}
+
 CurrentAccount account2 = new CurrentAccount("FR67890", 2500.50, 500.00, client1);
 
 SavingsAccount savings1 = new SavingsAccount("EP00123", 15000.00, client1);
@@ -27,28 +37,40 @@ bnp.AddAccount(savings2);
 bnp.AddAccount(account3);
 
 Console.WriteLine($"\nLa banque '{bnp.Name}' gère un total de {bnp.Accounts.Count} comptes.");
-Console.WriteLine($"Novi račun {account3.Number} starta sa solde: {account3.GetBalance():C2}");
 
-Console.WriteLine("\n--- OPÉRATIONS BANCAIRES ---");
+Console.WriteLine("\n--- TEST DES EXCEPTIONS ---");
 
-Console.WriteLine($"Solde initial Courant {account1.Number}: {account1.GetBalance():C2}");
+try
+{
+    account1.Deposit(-10.00);
+}
+catch (ArgumentOutOfRangeException ex)
+{
+    Console.WriteLine($"[Erreur Dépôt]: {ex.Message}");
+}
+
+try
+{
+    savings2.Withdraw(100.00);
+}
+catch (InsufficientBalanceException ex)
+{
+    Console.WriteLine($"[Erreur Retrait]: {ex.Message}");
+}
+
+Console.WriteLine($"\nSolde initial Courant {account1.Number}: {account1.GetBalance():C2}");
 account1.Deposit(100.00); 
 account1.Withdraw(300.00); 
-
-Console.WriteLine($"Appliquer Intérêts sur {savings1.Number}...");
-savings1.ApplyInterest(); 
-Console.WriteLine($"Novi solde après intérêts: {savings1.GetBalance():C2}");
 
 // Test de la méthode de rapport global
 Console.WriteLine("\n--- RAPPORT GLOBAL DE LA BANQUE ---");
 double totalMarko = bnp.GetTotalBalanceForPerson(client1);
 Console.WriteLine($"Solde total pour {client1.FirstName} {client1.LastName}: {totalMarko:C2}");
 
-
 public class Person
 {
-    public string FirstName { get; private set; }
-    public string LastName { get; private set; }
+    public string FirstName { get; private set; } 
+    public string LastName { get; private set; }   
     public DateTime BirthDate { get; private set; } 
 
     public Person(string firstName, string lastName, DateTime birthDate)
@@ -57,6 +79,16 @@ public class Person
         LastName = lastName;
         BirthDate = birthDate;
     }
+}
+
+public class InsufficientBalanceException : Exception
+{
+    public InsufficientBalanceException(string message) : base(message) { }
+}
+
+public class InvalidCreditLineException : ArgumentOutOfRangeException
+{
+    public InvalidCreditLineException(string message) : base(message) { }
 }
 
 public interface IAccount
@@ -72,7 +104,6 @@ public interface IBankAccount : IAccount
     Person Owner { get; }
     string Number { get; }
 }   
-
 public abstract class BankAccount : IBankAccount
 {
     public string Number { get; private set; }
@@ -80,26 +111,27 @@ public abstract class BankAccount : IBankAccount
     public Person Owner { get; private set; } 
 
     public BankAccount(string number, Person owner) : this(number, 0.0, owner) { }
+
     public BankAccount(string number, double initialBalance, Person owner)
     {
         Number = number;
         Balance = initialBalance;
         Owner = owner;
     }
-
     public virtual void Deposit(double amount) 
     {
-        if (amount > 0)
+        if (amount <= 0)
         {
-            Balance += amount;
-            Console.WriteLine($"Compte {Number}: + {amount:C2} (Dépôt {this.GetType().Name}). Nouveau solde: {Balance:C2}");
+            throw new ArgumentOutOfRangeException(
+                nameof(amount), 
+                $"Compte {Number}: Le montant du dépôt ({amount:C2}) doit être strictement supérieur à zéro."
+            );
         }
-        else
-        {
-            Console.WriteLine($"Compte {Number}: Erreur de dépôt. Le montant doit être positif.");
-        }
+        
+        Balance += amount;
+        Console.WriteLine($"Compte {Number}: + {amount:C2} (Dépôt {this.GetType().Name}). Nouveau solde: {Balance:C2}");
     }
-    
+
     public abstract void Withdraw(double amount); 
     
     public double GetBalance()
@@ -119,7 +151,23 @@ public abstract class BankAccount : IBankAccount
 
 public class CurrentAccount : BankAccount
 {
-    public double CreditLine { get; private set; }
+    private double _creditLine;
+
+    public double CreditLine 
+    { 
+        get => _creditLine; 
+        private set 
+        {
+            if (value < 0)
+            {
+                 throw new ArgumentOutOfRangeException(
+                    nameof(CreditLine), 
+                    $"La ligne de crédit ({value:C2}) doit être supérieure ou égale à zéro."
+                );
+            }
+            _creditLine = value;
+        }
+    } 
 
     public CurrentAccount(string number, double creditLine, Person owner)
         : base(number, owner) 
@@ -137,8 +185,10 @@ public class CurrentAccount : BankAccount
     {
         if (amount <= 0)
         {
-            Console.WriteLine($"Compte {Number}: Erreur de retrait. Le montant doit être positif.");
-            return;
+            throw new ArgumentOutOfRangeException(
+                nameof(amount),
+                $"Compte {Number}: Le montant du retrait ({amount:C2}) doit être strictement supérieur à zéro."
+            );
         }
 
         double allowedThreshold = -CreditLine; 
@@ -150,7 +200,9 @@ public class CurrentAccount : BankAccount
         }
         else
         {
-            Console.WriteLine($"Compte {Number}: Retrait de {amount:C2} refusé. Le solde disponible ({Balance + CreditLine:C2}) est insuffisant.");
+            throw new InsufficientBalanceException(
+                $"Compte {Number}: Retrait de {amount:C2} refusé. Le solde disponible ({Balance + CreditLine:C2}) est insuffisant."
+            );
         }
     }
     
@@ -173,15 +225,17 @@ public class SavingsAccount : BankAccount
     public SavingsAccount(string number, double initialBalance, Person owner)
         : base(number, initialBalance, owner)
     {
-        DateLastWithdraw = DateTime.MinValue; 
+        DateLastWithdraw = DateTime.MinValue;
     }
-
+    
     public override void Withdraw(double amount)
     {
         if (amount <= 0)
         {
-            Console.WriteLine($"Compte Épargne {Number}: Erreur de retrait. Le montant doit être positif.");
-            return;
+             throw new ArgumentOutOfRangeException(
+                nameof(amount),
+                $"Compte Épargne {Number}: Le montant du retrait ({amount:C2}) doit être strictement supérieur à zéro."
+            );
         }
 
         if (Balance >= amount)
@@ -192,7 +246,9 @@ public class SavingsAccount : BankAccount
         }
         else
         {
-            Console.WriteLine($"Compte Épargne {Number}: Retrait de {amount:C2} refusé. Solde insuffisant.");
+            throw new InsufficientBalanceException(
+                $"Compte Épargne {Number}: Retrait de {amount:C2} refusé. Solde insuffisant ({Balance:C2})."
+            );
         }
     }
 
@@ -206,6 +262,7 @@ public class Bank
 {
     public Dictionary<string, IBankAccount> Accounts { get; } 
     public string Name { get; private set; }
+
     public Bank(string name)
     {
         Name = name;
