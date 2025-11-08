@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq; 
 using System.Text;
 
-Console.WriteLine("--- DÉMARRAGE DE LA SIMULATION BANCAIRE (Avec Héritage et Interfaces) ---");
+Console.WriteLine("--- DÉMARRAGE DE LA SIMULATION BANCAIRE ---");
 
 // Création des Personnes
 Person client1 = new Person("Marko", "Buhovac", new DateTime(1867, 11, 7));
@@ -16,15 +16,18 @@ CurrentAccount account2 = new CurrentAccount("FR67890", 2500.50, 500.00, client1
 SavingsAccount savings1 = new SavingsAccount("EP00123", 15000.00, client1);
 SavingsAccount savings2 = new SavingsAccount("EP00456", 50.00, client2);
 
+CurrentAccount account3 = new CurrentAccount("FR99999", 500.00, client1); 
 
-// Création de la Banque i dodavanje računa
+// Création de la Banque
 Bank bnp = new Bank("BNP Paribas");
 bnp.AddAccount(account1);
 bnp.AddAccount(account2);
 bnp.AddAccount(savings1);
 bnp.AddAccount(savings2);
+bnp.AddAccount(account3);
 
 Console.WriteLine($"\nLa banque '{bnp.Name}' gère un total de {bnp.Accounts.Count} comptes.");
+Console.WriteLine($"Novi račun {account3.Number} starta sa solde: {account3.GetBalance():C2}");
 
 Console.WriteLine("\n--- OPÉRATIONS BANCAIRES ---");
 
@@ -41,11 +44,12 @@ Console.WriteLine("\n--- RAPPORT GLOBAL DE LA BANQUE ---");
 double totalMarko = bnp.GetTotalBalanceForPerson(client1);
 Console.WriteLine($"Solde total pour {client1.FirstName} {client1.LastName}: {totalMarko:C2}");
 
+
 public class Person
 {
-    public string FirstName { get; set; }
-    public string LastName { get; set; }
-    public DateTime BirthDate { get; set; }
+    public string FirstName { get; private set; }
+    public string LastName { get; private set; }
+    public DateTime BirthDate { get; private set; } 
 
     public Person(string firstName, string lastName, DateTime birthDate)
     {
@@ -71,11 +75,11 @@ public interface IBankAccount : IAccount
 
 public abstract class BankAccount : IBankAccount
 {
-
     public string Number { get; private set; }
     public double Balance { get; protected set; } 
     public Person Owner { get; private set; } 
 
+    public BankAccount(string number, Person owner) : this(number, 0.0, owner) { }
     public BankAccount(string number, double initialBalance, Person owner)
     {
         Number = number;
@@ -95,7 +99,7 @@ public abstract class BankAccount : IBankAccount
             Console.WriteLine($"Compte {Number}: Erreur de dépôt. Le montant doit être positif.");
         }
     }
-
+    
     public abstract void Withdraw(double amount); 
     
     public double GetBalance()
@@ -109,13 +113,19 @@ public abstract class BankAccount : IBankAccount
         Balance += interest;
         Console.WriteLine($"Compte {Number}: + {interest:C2} (Intérêts appliqués). Nouveau solde: {Balance:C2}");
     }
-
+    
     protected abstract double CalculateInterest();
 }
 
 public class CurrentAccount : BankAccount
 {
-    public double CreditLine { get; set; }
+    public double CreditLine { get; private set; }
+
+    public CurrentAccount(string number, double creditLine, Person owner)
+        : base(number, owner) 
+    {
+        CreditLine = creditLine;
+    }
 
     public CurrentAccount(string number, double initialBalance, double creditLine, Person owner)
         : base(number, initialBalance, owner)
@@ -143,7 +153,7 @@ public class CurrentAccount : BankAccount
             Console.WriteLine($"Compte {Number}: Retrait de {amount:C2} refusé. Le solde disponible ({Balance + CreditLine:C2}) est insuffisant.");
         }
     }
-
+    
     protected override double CalculateInterest()
     {
         return Balance * 0.001; 
@@ -153,6 +163,12 @@ public class CurrentAccount : BankAccount
 public class SavingsAccount : BankAccount
 {
     public DateTime DateLastWithdraw { get; private set; }
+
+    public SavingsAccount(string number, Person owner)
+        : base(number, owner) 
+    {
+        DateLastWithdraw = DateTime.MinValue; 
+    }
 
     public SavingsAccount(string number, double initialBalance, Person owner)
         : base(number, initialBalance, owner)
@@ -189,8 +205,7 @@ public class SavingsAccount : BankAccount
 public class Bank
 {
     public Dictionary<string, IBankAccount> Accounts { get; } 
-    public string Name { get; set; }
-
+    public string Name { get; private set; }
     public Bank(string name)
     {
         Name = name;
@@ -206,7 +221,6 @@ public class Bank
         else
         {
             Accounts.Add(account.Number, account);
-
             Console.WriteLine($"Compte {account.Number} ajouté à la banque {Name} (Type: {account.GetType().Name})."); 
         }
     }
@@ -225,10 +239,9 @@ public class Bank
 
     public double GetTotalBalanceForPerson(Person owner)
     {
-
         double total = Accounts.Values 
             .Where(account => account.Owner == owner) 
-            .Sum(account => account.GetBalance());
+            .Sum(account => account.GetBalance()); 
             
         return total;
     }
