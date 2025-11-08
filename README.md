@@ -72,3 +72,15 @@ Balance » et d’utiliser les méthodes « Depotsit » et « Withdraw ».
 « IAccount ».
 Elle lui permettra, en plus, d’invoquer la méthode du « ApplyInteret » et offrira
 un accès en lecture au « Owner » et au « Number ».
+
+14. Ajoutez, dans la classe « Account », deux constructeurs prenant en paramètre :
+• Le numéro et le titulaire
+• Le numéro, le titulaire et le solde (pour le cas d’une base de données)
+
+15. Le cas échéant, ajoutez le ou les constructeurs aux classes « CurrentAccount » et
+« SavingsAccount ».
+
+16. Changer l’encapsulation des propriétés des classes « Person », « Account » et
+« SavingsAccount » afin de spécifier leur mutateur en « private ».
+
+17. Définir ce qu’il manque pour que le programme continue à tourner.
