@@ -3,66 +3,62 @@ using System.Collections.Generic;
 using System.Linq; 
 using System.Text;
 
-Console.WriteLine("--- DÉMARRAGE DE LA SIMULATION BANCAIRE ---");
+Console.WriteLine("DÉMARRAGE DE LA SIMULATION BANCAIRE");
 
-// Création des Personnes
+// 1. Création des Personnes
 Person client1 = new Person("Marko", "Buhovac", new DateTime(1867, 11, 7));
 Person client2 = new Person("Max", "Verstappen", new DateTime(1879, 3, 14));
 
-// Création des Comptes
-CurrentAccount account1;
-try 
-{
-    account1 = new CurrentAccount("FR12345", 500.00, -100.00, client1); 
-}
-catch (ArgumentOutOfRangeException ex)
-{
-    Console.WriteLine($"\n[Erreur de Création]: {ex.Message}");
-    account1 = new CurrentAccount("FR12345", 500.00, 1000.00, client1); 
-}
-
+// 2. Création des Comptes
+CurrentAccount account1 = new CurrentAccount("FR12345", 500.00, 1000.00, client1);
 CurrentAccount account2 = new CurrentAccount("FR67890", 2500.50, 500.00, client1);
 
 SavingsAccount savings1 = new SavingsAccount("EP00123", 15000.00, client1);
 SavingsAccount savings2 = new SavingsAccount("EP00456", 50.00, client2);
 
-CurrentAccount account3 = new CurrentAccount("FR99999", 500.00, client1); 
-
-// Création de la Banque
+// 3. Création de la Banque et ajout des comptes
 Bank bnp = new Bank("BNP Paribas");
-bnp.AddAccount(account1);
+
+bnp.AddAccount(account1); 
 bnp.AddAccount(account2);
 bnp.AddAccount(savings1);
-bnp.AddAccount(savings2);
-bnp.AddAccount(account3);
+bnp.AddAccount(savings2); 
 
 Console.WriteLine($"\nLa banque '{bnp.Name}' gère un total de {bnp.Accounts.Count} comptes.");
 
-Console.WriteLine("\n--- TEST DES EXCEPTIONS ---");
+Console.WriteLine("\n--- TEST DE L'ÉVÉNEMENT NEGATIVE BALANCE ---");
 
-try
-{
-    account1.Deposit(-10.00);
-}
-catch (ArgumentOutOfRangeException ex)
-{
-    Console.WriteLine($"[Erreur Dépôt]: {ex.Message}");
-}
+// Compte 1: Solde initial: 500.00, Ligne de crédit: 1000.00
+Console.WriteLine($"Solde initial {account1.Number}: {account1.GetBalance():C2}");
 
-try
-{
-    savings2.Withdraw(100.00);
+// Tentative A: Retrait normal (le compte reste positif)
+Console.WriteLine("\nTentative A: Retrait qui maintient le solde positif (500.00 - 100.00 = 400.00)");
+try {
+    account1.Withdraw(100.00); 
 }
-catch (InsufficientBalanceException ex)
-{
-    Console.WriteLine($"[Erreur Retrait]: {ex.Message}");
+catch (Exception ex) { 
+    Console.WriteLine($"[Erreur]: {ex.Message}");
 }
 
-Console.WriteLine($"\nSolde initial Courant {account1.Number}: {account1.GetBalance():C2}");
-account1.Deposit(100.00); 
-account1.Withdraw(300.00); 
+// Tentative B: Retrait critique (le compte PASSE en négatif)
+Console.WriteLine("\nTentative B: Retrait qui fait PASSER le compte en négatif (400.00 - 800.00 = -400.00)");
+try {
+    account1.Withdraw(800.00); 
+}
+catch (Exception ex) { 
+    Console.WriteLine($"[Erreur]: {ex.Message}");
+}
 
-// Test de la méthode de rapport global
+// Tentative C: Retrait en étant DÉJÀ en négatif
+Console.WriteLine("\nTentative C: Retrait en étant déjà négatif (-400.00 - 100.00 = -500.00)");
+try {
+    account1.Withdraw(100.00); 
+}
+catch (Exception ex) { 
+    Console.WriteLine($"[Erreur]: {ex.Message}");
+}
+
+// 5. Test final (état général)
 Console.WriteLine("\n--- RAPPORT GLOBAL DE LA BANQUE ---");
 double totalMarko = bnp.GetTotalBalanceForPerson(client1);
 Console.WriteLine($"Solde total pour {client1.FirstName} {client1.LastName}: {totalMarko:C2}");
@@ -104,8 +100,13 @@ public interface IBankAccount : IAccount
     Person Owner { get; }
     string Number { get; }
 }   
+
 public abstract class BankAccount : IBankAccount
 {
+    public event Action<BankAccount> NegativeBalanceEvent;
+    
+    protected bool IsCurrentlyNegative { get; set; }
+
     public string Number { get; private set; }
     public double Balance { get; protected set; } 
     public Person Owner { get; private set; } 
@@ -117,7 +118,14 @@ public abstract class BankAccount : IBankAccount
         Number = number;
         Balance = initialBalance;
         Owner = owner;
+        IsCurrentlyNegative = initialBalance < 0; 
     }
+
+    protected virtual void OnNegativeBalance()
+    {
+        NegativeBalanceEvent?.Invoke(this); 
+    }
+
     public virtual void Deposit(double amount) 
     {
         if (amount <= 0)
@@ -128,10 +136,16 @@ public abstract class BankAccount : IBankAccount
             );
         }
         
+        double oldBalance = Balance;
         Balance += amount;
         Console.WriteLine($"Compte {Number}: + {amount:C2} (Dépôt {this.GetType().Name}). Nouveau solde: {Balance:C2}");
+        
+        if (oldBalance < 0 && Balance >= 0)
+        {
+            IsCurrentlyNegative = false;
+        }
     }
-
+    
     public abstract void Withdraw(double amount); 
     
     public double GetBalance()
@@ -152,7 +166,7 @@ public abstract class BankAccount : IBankAccount
 public class CurrentAccount : BankAccount
 {
     private double _creditLine;
-
+    
     public double CreditLine 
     { 
         get => _creditLine; 
@@ -191,12 +205,19 @@ public class CurrentAccount : BankAccount
             );
         }
 
+        double oldBalance = Balance;
         double allowedThreshold = -CreditLine; 
         
         if (Balance - amount >= allowedThreshold)
         {
             Balance -= amount; 
             Console.WriteLine($"Compte {Number}: - {amount:C2} (Retrait Courant). Nouveau solde: {Balance:C2}");
+            
+            if (Balance < 0 && oldBalance >= 0)
+            {
+                IsCurrentlyNegative = true;
+                OnNegativeBalance(); 
+            }
         }
         else
         {
@@ -225,9 +246,9 @@ public class SavingsAccount : BankAccount
     public SavingsAccount(string number, double initialBalance, Person owner)
         : base(number, initialBalance, owner)
     {
-        DateLastWithdraw = DateTime.MinValue;
+        DateLastWithdraw = DateTime.MinValue; 
     }
-    
+
     public override void Withdraw(double amount)
     {
         if (amount <= 0)
@@ -250,6 +271,7 @@ public class SavingsAccount : BankAccount
                 $"Compte Épargne {Number}: Retrait de {amount:C2} refusé. Solde insuffisant ({Balance:C2})."
             );
         }
+        // Note: L'événement NegativeBalanceEvent n'est pas pertinent ici car le solde ne peut pas être négatif.
     }
 
     protected override double CalculateInterest()
@@ -269,6 +291,11 @@ public class Bank
         Accounts = new Dictionary<string, IBankAccount>();
     }
 
+    public void NegativeBalanceAction(BankAccount account)
+    {
+        Console.WriteLine($"\n[ALERTE BANQUE - URGENT] Le numéro de compte {account.Number} vient de passer en négatif (Solde: {account.GetBalance():C2})");
+    }
+
     public void AddAccount(IBankAccount account)
     {
         if (Accounts.ContainsKey(account.Number))
@@ -279,11 +306,23 @@ public class Bank
         {
             Accounts.Add(account.Number, account);
             Console.WriteLine($"Compte {account.Number} ajouté à la banque {Name} (Type: {account.GetType().Name})."); 
+            
+            if (account is BankAccount bankAccount)
+            {
+                bankAccount.NegativeBalanceEvent += NegativeBalanceAction;
+                Console.WriteLine($"[Abonnement OK] La banque surveille les changements de solde de {account.Number}.");
+            }
         }
     }
 
     public void DeleteAccount(string number)
     {
+        if (Accounts.TryGetValue(number, out IBankAccount accountToRemove) && accountToRemove is BankAccount bankAccount)
+        {
+            bankAccount.NegativeBalanceEvent -= NegativeBalanceAction;
+            Console.WriteLine($"[Désabonnement OK] La banque ne surveille plus {number}.");
+        }
+
         if (Accounts.Remove(number))
         {
             Console.WriteLine($"Compte {number} a été supprimé.");
